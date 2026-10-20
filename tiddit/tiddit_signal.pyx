@@ -258,6 +258,8 @@ def main(str bam_file_name,str ref,str prefix,int min_q,int max_ins,str sample_i
 	res=Parallel(n_jobs=threads)( delayed(worker)(chromosome,bam_file_name,ref,prefix,min_q,max_ins,sample_id,bin_size,skip_index,min_anchor_len,min_clip_len) for chromosome in chromosomes )
 
 	chromosomes=set(chromosomes)
+	unknown_partner_signals=0
+	unknown_partner_contigs=set()
 	for i in range(0,len(res)):
 		coverage_data[ res[i][0] ] = res[i][3]
 
@@ -268,6 +270,11 @@ def main(str bam_file_name,str ref,str prefix,int min_q,int max_ins,str sample_i
 			if not signal[0] in data:
 				continue
 	
+			if signal[1] not in data[signal[0]]:
+				unknown_partner_signals+=1
+				unknown_partner_contigs.add(signal[1])
+				continue
+
 			if not signal[2] in data[ signal[0] ][ signal[1] ]:
 				data[ signal[0] ][signal[1]][signal[2]]=[]
 			data[ signal[0] ][signal[1]][signal[2]].append(signal[3:])
@@ -276,11 +283,19 @@ def main(str bam_file_name,str ref,str prefix,int min_q,int max_ins,str sample_i
 			if not signal[0] in splits:
 				continue
 
+			if signal[1] not in splits[signal[0]]:
+				unknown_partner_signals+=1
+				unknown_partner_contigs.add(signal[1])
+				continue
+
 			if not signal[2] in splits[ signal[0] ][ signal[1] ]:
 				splits[ signal[0] ][signal[1]][signal[2]]=[]
 			splits[ signal[0] ][signal[1]][signal[2]]+=signal[3:]
 
 		clip_fasta.append(res[i][4])
+
+	if unknown_partner_signals:
+		print("Skipped partner signals outside alignment dictionary:", unknown_partner_signals, "contigs:", ",".join(sorted(unknown_partner_contigs)))
 
 	t_tot=time.time()-t
 
